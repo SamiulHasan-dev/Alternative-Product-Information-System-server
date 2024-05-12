@@ -18,40 +18,59 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
 });
 
 async function run() {
-  try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    try {
+        // Connect the client to the server	(optional starting in v4.7)
+        await client.connect();
 
-    const productCollection = client.db('productDB').collection('product');
+        const productCollection = client.db('productDB').collection('product');
 
-    // Product
-    app.post('/products', async (req, res) => {
-        const newProduct = req.body;
-        console.log(newProduct);
-        const result = await productCollection.insertOne(newProduct);
-        res.send(result);
-      })
-
-
-     
+        // Product
+        app.post('/products', async (req, res) => {
+            const newProduct = req.body;
+            console.log(newProduct);
+            const result = await productCollection.insertOne(newProduct);
+            res.send(result);
+        })
 
 
+        //all data get
+        app.get('/products', async (req, res) => {
+            // const id = req.body();
+            const cursor = productCollection.find();
+            const result = await cursor.toArray();
+            res.send(result);
+        })
 
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
-  }
+        //all recent data get
+        app.get('/productsHome', async (req, res) => {
+            // const id = req.body();
+            const query = req.body;
+            const options = {
+                // Sort returned documents in ascending order by title (A->Z)
+                sort: { currentTime: -1 },
+              };
+            const cursor = productCollection.find(query, options);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+
+
+        // Send a ping to confirm a successful connection
+        await client.db("admin").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    } finally {
+        // Ensures that the client will close when you finish/error
+        // await client.close();
+    }
 }
 run().catch(console.dir);
 

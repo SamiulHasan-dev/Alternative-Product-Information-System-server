@@ -31,6 +31,7 @@ async function run() {
         await client.connect();
 
         const productCollection = client.db('productDB').collection('product');
+        const recommendationCollection = client.db('productDB').collection('recommendation');
 
         // Product
         app.post('/products', async (req, res) => {
@@ -109,6 +110,9 @@ async function run() {
             const result = await productCollection.find(query).toArray();
             res.send(result);
         })
+
+
+        /* Recommendation */
 
         
 

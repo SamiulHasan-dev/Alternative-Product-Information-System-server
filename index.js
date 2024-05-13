@@ -57,7 +57,32 @@ async function run() {
         })
 
         
+        //delete my queries
+        app.delete('/products/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await productCollection.deleteOne(query);
+            res.send(result);
+        })
 
+        //update Query
+        app.put('/products/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) }
+            const options = { upsert: true }
+            const updateQuery = req.body;
+            const Query = {
+              $set: {
+                productName:updateQuery.productName,
+                productBand:updateQuery.productBand,
+                productImage:updateQuery.productImage,
+                queryTitle:updateQuery.queryTitle,
+                boycott:updateQuery.boycott,
+              }
+            }
+            const result = await productCollection.updateOne(filter, Query, options);
+            res.send(result);
+          })
 
 
 

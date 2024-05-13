@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -40,7 +40,6 @@ async function run() {
             res.send(result);
         })
 
-
         //all data get
         app.get('/products', async (req, res) => {
             // const id = req.body();
@@ -49,6 +48,19 @@ async function run() {
             res.send(result);
         })
 
+        // get single product
+        app.get('/query/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await productCollection.findOne(query);
+            res.send(result)
+        })
+
+        
+
+
+
+
         //all recent data get
         app.get('/productsHome', async (req, res) => {
             // const id = req.body();
@@ -56,11 +68,25 @@ async function run() {
             const options = {
                 // Sort returned documents in ascending order by title (A->Z)
                 sort: { currentTime: -1 },
-              };
+            };
             const cursor = productCollection.find(query, options);
             const result = await cursor.toArray();
             res.send(result);
         })
+
+
+        //myQueries
+        app.get('/products/:email', async (req, res) => {
+            console.log(req.params.email)
+            const myEmail = req.params.email;
+            const query = { email: myEmail };
+            console.log(myEmail)
+            const result = await productCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        
+
 
 
 

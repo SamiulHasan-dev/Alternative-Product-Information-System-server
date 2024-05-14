@@ -49,6 +49,15 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/productSearch', async (req, res) => {
+            const searchText = req.query.searchText; // Get the search text from the query parameters
+            const query = searchText ? { productName: { $regex: searchText, $options: 'i' } } : {}; // Construct the MongoDB query
+            
+            const cursor = productCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+
         // get single product
         app.get('/query/:id', async (req, res) => {
             const id = req.params.id;
@@ -177,6 +186,16 @@ async function run() {
             console.log(req.params.email)
             const myEmail = req.params.email;
             const query = { recommenderEmail: myEmail };
+            console.log(myEmail)
+            const result = await recommendationCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        //recommends by otherEmail
+        app.get('/recommendOthers/:email', async (req, res) => {
+            console.log(req.params.email)
+            const myEmail = req.params.email;
+            const query = { recommenderEmail: { $ne: myEmail } }; // $ne operator selects the documents where the value of the field is not equal to the specified value.
             console.log(myEmail)
             const result = await recommendationCollection.find(query).toArray();
             res.send(result);

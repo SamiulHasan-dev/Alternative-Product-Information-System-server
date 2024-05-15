@@ -1,14 +1,23 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
+app.use(cors({
+    origin: [
+        // 'http://localhost:5173'
+        'https://product-verse.web.app',
+        'https://product-verse.firebaseapp.com'
+    ],
+    credentials: true
+}));
 app.use(express.json());
-app.use(cors());
-
+app.use(cookieParser());
 
 
 
@@ -25,13 +34,60 @@ const client = new MongoClient(uri, {
     }
 });
 
+
+// middlewares
+const logger = async (req, res, next) => {
+    console.log('log info', req.method, req.url);
+    next();
+  }
+  
+  const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
+    console.log('token in middleware', token);
+    // no token available
+    if (!token) {
+      return res.status(401).send({ message: 'unauthorized access' })
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+      // error
+      if (err) {
+        return res.status(401).send({ message: 'unauthorized access' })
+      }
+      // if token is valid then it would be decoded
+      req.user = decoded;
+      next();
+  
+    })
+  }
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
 
         const productCollection = client.db('productDB').collection('product');
         const recommendationCollection = client.db('productDB').collection('recommendation');
+
+
+        // auth related api
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            console.log('user for token', user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '365d' })
+            res
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'none'
+                })
+                .send({ success: true });
+        })
+
+        app.post('/logout', async (req, res) => {
+            const user = req.body;
+            console.log('logging out', user);
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+        })
 
         // Product
         app.post('/products', async (req, res) => {
@@ -52,7 +108,7 @@ async function run() {
         app.get('/productSearch', async (req, res) => {
             const searchText = req.query.searchText; // Get the search text from the query parameters
             const query = searchText ? { productName: { $regex: searchText, $options: 'i' } } : {}; // Construct the MongoDB query
-            
+
             const cursor = productCollection.find(query);
             const result = await cursor.toArray();
             res.send(result);
@@ -125,8 +181,13 @@ async function run() {
 
 
         //myQueries
-        app.get('/products/:email', async (req, res) => {
+        app.get('/products/:email', logger , verifyToken,  async (req, res) => {
             console.log(req.params.email)
+            console.log('cook cookies', req.cookies);
+            console.log('token owner info', req.user);
+            if(req.params.email !== req.user.email){
+              return res.status(403).send({message: 'forbidden access'})
+            }
             const myEmail = req.params.email;
             const query = { email: myEmail };
             console.log(myEmail)
@@ -182,14 +243,20 @@ async function run() {
 
 
         //recommend by myEmail
-        app.get('/recommendProduct/:email', async (req, res) => {
-            console.log(req.params.email)
+        app.get('/recommendProduct/:email', verifyToken, async (req, res) => {
+            console.log(req.params.email);
+            console.log('cook cookies', req.cookies);
+            console.log('token owner info', req.user);
+            if (req.params.email !== req.user.email) {
+                return res.status(403).send({ message: 'Forbidden access' });
+            }
             const myEmail = req.params.email;
             const query = { recommenderEmail: myEmail };
-            console.log(myEmail)
+            console.log(myEmail);
             const result = await recommendationCollection.find(query).toArray();
             res.send(result);
-        })
+        });
+
 
         //recommends by otherEmail
         app.get('/recommendOthers/:email', async (req, res) => {
@@ -230,13 +297,7 @@ async function run() {
             const result = await recommendationCollection.findOne(query);
             res.send(result)
         })
-        // delete the data
-        // app.delete('/recommendProductId/:id', async (req, res) => {
-        //     const id = req.params.id;
-        //     const query = { _id: new ObjectId(id) };
-        //     const result = await recommendationCollection.deleteOne(query);
-        //     res.send(result);
-        // })
+        
 
         // Delete recommendation and decrement recommendationCount
         app.delete('/recommendProductId/:id', async (req, res) => {
@@ -273,8 +334,8 @@ async function run() {
 
 
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
